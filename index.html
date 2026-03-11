@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Luna's Big Day</title>
+
+<style>
+body{
+margin:0;
+background:#1a1a2e;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+font-family:sans-serif;
+color:white;
+}
+
+canvas{
+background:#87ceeb;
+border-radius:12px;
+}
+</style>
+
+</head>
+
+<body>
+
+<canvas id="game" width="420" height="700"></canvas>
+
+<script>
+
+const villageTiles = new Image()
+villageTiles.src = "village_tiles.png"
+
+const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
+
+const W = canvas.width
+const H = canvas.height
+
+const sprites = new Image()
+sprites.src = "sprites.png"
+
+const tileset = new Image()
+tileset.src = "tileset.png"
+
+const grasstile = new Image()
+grasstile.src = "grasstile.png"
+
+const dughole = new Image()
+dughole.src = "dughole.png"
+
+const flowergrass = new Image()
+flowergrass.src = "flowergrass.png"
+
+let ringbox = new Image()
+ringbox.src = "ringbox.png"
+
+const tulip = new Image()
+tulip.src = "tulip.png"
+
+const gravybone = new Image()
+gravybone.src = "gravybone.png"
+
+const sea = new Image()
+sea.src = "sea.png"
+
+const luna1 = new Image()
+luna1.src = "luna1.png"
+
+const luna2 = new Image()
+luna2.src = "luna2.png"
+
+const whiteflower = new Image()
+whiteflower.src = "whiteflower.png"
+
+const purplegrass = new Image()
+purplegrass.src = "purplegrass.png"
+
+const houseRow = new Image()
+houseRow.src = "house-row.png"
+
+const path = new Image()
+path.src = "path.png"
+
+const sandpath = new Image()
+sandpath.src = "sandpath.png"
+
+const jonny1 = new Image()
+jonny1.src = "jonny1.png"
+
+const bggrass = new Image()
+bggrass.src = "bggrass.png"
+
+const lottie1 = new Image()
+lottie1.src = "lottie1.png"
+
+const flowerpot = new Image()
+flowerpot.src = "flowerpot.png"
+
+const crate = new Image()
+crate.src = "crate.png"
+
+const wall = new Image()
+wall.src = "wall.png"
+
+const seagull = new Image()
+seagull.src = "seagull.png"
+
+const bgpath = new Image()
+bgpath.src = "bgpath.png"
+
+const house1 = new Image()
+house1.src = "house1.png"
+
+const house2 = new Image()
+house2.src = "house2.png"
+
+const house3 = new Image()
+house3.src = "house3.png"
+
+const house4 = new Image()
+house4.src = "house4.png"
+
+const houses = [house1, house2, house3, house4]
+
+let grassplatform = new Image()
+grassplatform.src = "grassplatform.png"
+
+let dust = []
+
+let meadowFlowers=[]
+
+let state = "start"
+
+let confetti = []
+
+let showRingPopup = false
+
+let spacePressedLastFrame = false
+
+let previousState = "start"
+
+
+
+/* PLAYER */
+
+const luna = {
+x:200,
+y:500,
+vx:0,
+vy:0,
+ground:false,
+dir:1
+}
+
+const couple = {
+x: W/2,
+y: 120
+}
+
+/* UI */
+
+let energy=100
+let hasRing=false
+let flowers=0
+
+
+/* INPUT */
+
+
+
+const keys={}
+
+window.addEventListener("keydown", e => {
+
+keys[e.key] = true
+
+/* DEV LEVEL SKIP */
+
+if(e.key === "1"){
+state = "garden"
+generateDigSpots()
+}
+
+if(e.key === "2"){
+state = "coastal"
+luna.x = 50
+luna.y = 500
+}
+
+if(e.key === "3"){
+state = "village"
+luna.x = 100
+luna.y = 500
+}
+
+if(e.key === "4"){
+state = "altar"
+luna.x = W/2
+luna.y = 450
+}
+
+})
+
+window.addEventListener("keyup",e=>keys[e.key]=false)
+
+/* START SCREEN */
+
+function updateStart(){
+if(keys[" "]){
+state="garden"
+generateDigSpots()
+}
+}
+
+function drawLuna(){
+
+let frame = luna1
+let bob = 0
+
+/* running animation */
+
+if(keys["ArrowLeft"] || keys["ArrowRight"]){
+
+let step = Math.floor(Date.now()/160) % 2
+frame = step ? luna1 : luna2
+
+/* body bob */
+
+bob = step ? -2 : 0
+
+}
+
+ctx.save()
+
+ctx.translate(luna.x, luna.y + bob)
+ctx.scale(luna.dir,1)
+
+ctx.drawImage(
+frame,
+-50,
+-65,
+100,
+100
+)
+
+ctx.restore()
+
+}
+
+
+function drawStart(){
+
+ctx.fillStyle="white"
+ctx.textAlign="center"
+
+ctx.font="28px sans-serif"
+ctx.fillText("Oh no!",W/2,200)
+
+ctx.font="20px sans-serif"
+ctx.fillText("Luna woke up late!",W/2,240)
+ctx.fillText("Find the rings and reach the wedding!",W/2,270)
+
+ctx.fillText("Press SPACE to start",W/2,400)
+
+}
+
+/* ENERGY */
+
+function updateEnergy(){
+
+energy -= 0.005
+
+if(energy<=0){
+state="gameover"
+}
+
+}
+
+function drawUI(){
+
+/* UI BACKGROUND STRIP */
+
+ctx.fillStyle = "rgba(255,255,255,0.6)"
+ctx.fillRect(0,0,W,60)
+
+/* RING ICON (TOP LEFT) */
+
+if(hasRing){
+
+ctx.drawImage(
+ringbox,
+20,
+15,
+40,
+40
+)
+
+}
+
+
+/* ENERGY BAR (TOP CENTRE) */
+
+let barWidth = 160
+let barHeight = 14
+let barX = W/2 - barWidth/2
+let barY = 25
+
+// gravy bone icon
+ctx.drawImage(
+gravybone,
+barX - 45,
+barY - 12,
+36,
+36
+)
+
+// outline
+ctx.strokeStyle = "#000"
+ctx.lineWidth = 3
+ctx.lineJoin = "round"
+ctx.strokeRect(barX,barY,barWidth,barHeight)
+
+// fill
+ctx.fillStyle = "#8cff66"
+ctx.fillRect(barX,barY,(energy/100)*barWidth,barHeight)
+
+
+/* FLOWER COUNTER (TOP RIGHT) */
+
+ctx.fillStyle = "#000"
+ctx.font = "18px sans-serif"
+ctx.textAlign = "right"
+
+/* FLOWER COUNTER (TOP RIGHT) */
+
+ctx.drawImage(
+tulip,
+W - 90,
+10,
+36,
+36
+)
+
+ctx.fillStyle = "#000"
+ctx.font = "18px sans-serif"
+ctx.textAlign = "right"
+
+ctx.fillText(
+flowers,
+W - 20,
+35
+)
+}
+
+/* GARDEN LEVEL */
+
+let digSpots=[]
+let ringSpot=0
+
+function generateDigSpots(){
+
+digSpots=[]
+
+let startX=120
+let startY=250
+
+for(let y=0;y<3;y++){
+
+for(let x=0;x<3;x++){
+
+digSpots.push({
+x:startX+x*80,
+y:startY+y*80,
+dug:false
+})
+
+}
+
+}
+
+ringSpot=Math.floor(Math.random()*9)
+
+}
+
+function updateGarden(){
+
+// if popup is showing, wait for SPACE to continue
+
+
+if(showRingPopup){
+
+// wait for a NEW space press
+if(keys[" "] && !spacePressedLastFrame){
+
+showRingPopup = false
+state = "coastal"
+
+luna.x = 50
+luna.y = 500
+
+}
+
+spacePressedLastFrame = keys[" "]
+
+return
+}
+
+updateEnergy()
+
+if(keys["ArrowRight"]){
+luna.x += 3
+luna.dir = 1
+}
+
+if(keys["ArrowLeft"]){
+luna.x -= 3
+luna.dir = - 1
+}
+
+if(keys["ArrowUp"]) luna.y-=3
+if(keys["ArrowDown"]) luna.y+=3
+
+digSpots.forEach((s,i)=>{
+
+let d=Math.hypot(luna.x-s.x,luna.y-s.y)
+
+if(d<30 && keys[" "] && !s.dug){
+
+s.dug = true
+
+/* collect a flower */
+
+flowers++
+
+/* ring spot */
+
+if(i===ringSpot){
+
+hasRing = true
+showRingPopup = true
+
+
+// reset space tracking so popup doesn't instantly close
+spacePressedLastFrame = true
+
+}
+
+}
+
+})
+
+}
+
+
+function drawGarden(){
+
+// grass background
+for(let x=0; x<W; x+=64){
+for(let y=0; y<H; y+=64){
+
+ctx.drawImage(
+grasstile,
+x,y,
+64,64
+)
+
+}
+}
+
+// draw flowers / holes
+digSpots.forEach(s=>{
+
+// flower if not dug
+if(!s.dug){
+
+ctx.drawImage(
+flowergrass,
+s.x-16,
+s.y-16,
+64,
+64
+)
+
+}
+
+// dug hole if dug
+if(s.dug){
+
+ctx.drawImage(
+dughole,
+s.x-32,
+s.y-32,
+64,
+64
+)
+
+}
+
+})   // ← THIS closes the forEach loop
+
+// popup
+if(showRingPopup){
+
+ctx.fillStyle="white"
+ctx.beginPath()
+ctx.roundRect(W/2-200,H/2-100,400,200,20)
+ctx.fill()
+
+// ring image
+ctx.drawImage(
+ringbox,
+W/2-40,
+H/2-70,
+80,
+80
+)
+
+// text
+ctx.fillStyle="#333"
+ctx.font="20px sans-serif"
+ctx.textAlign="center"
+
+ctx.fillText("Yay you found the rings!",W/2,H/2+30)
+ctx.fillText("Let's go to the venue!",W/2,H/2+60)
+
+
+}
+
+
+drawLuna()
+
+}
+
+
+/* COASTAL LEVEL */
+
+let bones=[]
+let flowersCoastal=[]
+let platformsCoastal=[]
+let scroll=0
+
+function spawnPlatformCluster(){
+let last = platformsCoastal[platformsCoastal.length-1]
+
+if(last && last.x > W - 250) return
+let startX = W + 120
+let baseY = 260 + Math.random()*80
+
+let count = 2 + Math.floor(Math.random()*2) // 2–3 platforms
+
+for(let i=0;i<count;i++){
+
+// some platforms are wider
+let width = Math.random() < 0.35 ? 192 : 96
+
+let p = {
+x: startX + i*110,
+y: baseY - i*40 + Math.random()*20,
+w: width
+}
+
+platformsCoastal.push(p)
+
+// flower on platform
+if(Math.random() < 0.7){
+flowersCoastal.push({
+x: p.x + p.w/2,
+y: p.y - 40
+})
+}
+
+// bone on platform
+if(Math.random() < 0.4){
+bones.push({
+x: p.x + p.w/3,
+y: p.y - 40
+})
+}
+
+}
+
+}
+
+// occasional low rest platform
+if(Math.random() < 0.35){
+
+let p = {
+x: W + 120,
+y: 420,   // just above the path
+w: 160
+}
+
+platformsCoastal.push(p)
+
+// items on rest platform
+if(Math.random() < 0.5){
+flowersCoastal.push({
+x: p.x + p.w/2,
+y: p.y - 40
+})
+}
+
+if(Math.random() < 0.4){
+bones.push({
+x: p.x + p.w/3,
+y: p.y - 40
+})
+}
+
+}
+
+function updateCoastal(){
+
+
+updateEnergy()
+
+/* movement */
+
+if(keys["ArrowRight"]){
+luna.x+=3
+luna.dir=1
+}
+
+if(keys["ArrowLeft"]){
+luna.x-=3
+luna.dir=-1
+}
+
+/* RUNNING DUST */
+
+if((keys["ArrowLeft"] || keys["ArrowRight"]) && luna.y >= 500){
+
+if(Math.random() < 0.25){
+
+dust.push({
+x: luna.x - luna.dir * 25,
+y: luna.y + 10,
+vx: (Math.random()-0.5)*0.5,
+vy: -0.3,
+life: 20
+})
+
+}
+
+}
+
+/* jump */
+
+if(keys[" "] && luna.vy==0){
+luna.vy=-11
+}
+
+/* gravity */
+
+luna.vy+=0.5
+luna.y+=luna.vy
+
+platformsCoastal = platformsCoastal.filter(p => p.x > -120)
+flowersCoastal = flowersCoastal.filter(f => f.x > -120)
+bones = bones.filter(b => b.x > -120)
+
+
+/* platform collision */
+
+let onPlatform=false
+
+platformsCoastal.forEach(p=>{
+
+if(
+luna.x > p.x - 40 &&
+luna.x < p.x + 96 + 40 &&
+luna.y > p.y - 20 &&
+luna.y < p.y + 20 &&
+luna.vy >= 0
+){
+luna.y = p.y
+luna.vy = 0
+}
+})
+
+/* ground collision */
+
+let groundY=510
+
+if(!onPlatform && luna.y>groundY){
+luna.y=groundY
+luna.vy=0
+}
+
+/* scrolling */
+
+scroll+=1.5
+
+/* spawn platforms */
+
+if(Math.random()<0.01) spawnPlatformCluster()
+
+/* PATH COLLECTIBLES */
+
+if(Math.random() < 0.008){
+
+flowersCoastal.push({
+x: W + 100,
+y: 520 + Math.random()*20
+})
+
+}
+
+if(Math.random() < 0.004){
+
+bones.push({
+x: W + 100,
+y: 500
+})
+
+}
+
+/* move platforms */
+
+platformsCoastal.forEach(p=>{
+p.x-=1.5
+})
+
+/* move flowers */
+
+flowersCoastal.forEach(f=>{
+
+f.x-=1.5
+
+if(Math.abs(f.x-luna.x)<30 && Math.abs(f.y-luna.y)<40){
+flowers++
+f.x=-100
+}
+
+})
+
+/* move bones */
+
+bones.forEach(b=>{
+
+b.x-=1.5
+
+if(Math.abs(b.x-luna.x)<30 && Math.abs(b.y-luna.y)<40){
+energy=Math.min(100,energy+35)
+b.x=-100
+}
+
+})
+
+/* level end */
+
+if(scroll>2000){
+state="village"
+}
+
+}
+
+function drawCoastal(){
+
+/* SKY */
+
+let sky=ctx.createLinearGradient(0,0,0,H)
+sky.addColorStop(0,"#dbe9f4")
+sky.addColorStop(1,"#9ec9e6")
+
+ctx.fillStyle=sky
+ctx.fillRect(0,0,W,H)
+
+/* SEA */
+
+for(let x=-(scroll*0.3%256); x<W; x+=256){
+
+ctx.drawImage(
+sea,
+x,
+350,
+256,
+140
+)
+
+}
+
+/* FLOATING PLATFORMS */
+
+platformsCoastal.forEach(p=>{
+
+ctx.drawImage(
+grassplatform,
+p.x,
+p.y,
+96,
+96
+)
+
+})
+
+
+/* GROUND FLOWER GRASS */
+
+/* PURPLE GRASS (TOP ROW) */
+
+for(let x = -(scroll % 128); x < W; x += 128){
+
+ctx.drawImage(
+purplegrass,
+x,
+420,
+128,
+80
+)
+
+}
+
+
+/* PATH (LUNA RUNS HERE) */
+
+for(let x = -(scroll % 128); x < W; x += 128){
+
+ctx.drawImage(
+sandpath,
+x,
+500,
+128,
+80
+)
+
+}
+
+
+/* GRASS BELOW PATH */
+
+for(let x = -(scroll % 128); x < W; x += 128){
+
+ctx.drawImage(
+grasstile,
+x,
+560,
+128,
+140
+)
+
+}
+
+
+/* FLOWERS */
+
+flowersCoastal.forEach(f=>{
+
+ctx.drawImage(
+tulip,
+f.x-16,
+f.y-32,
+64,
+64
+)
+
+})
+
+
+/* BONES */
+
+bones.forEach(b=>{
+
+ctx.drawImage(
+gravybone,
+b.x-16,
+b.y-16,
+64,
+64
+)
+
+})
+
+
+/* LUNA */
+
+drawLuna()
+
+/* LUNA */
+
+drawLuna()
+
+}
+
+
+/* VILLAGE */
+
+let obstacles=[]
+let bonesVillage=[]
+let flowersVillage=[]
+
+function spawnObstacle(){
+
+let minGap = 180
+
+if(obstacles.length > 0){
+
+let last = obstacles[obstacles.length-1]
+
+if(W - last.x < minGap) return
+
+}
+
+obstacles.push({
+x:W+100,
+y:510,
+hit:false,
+type: Math.floor(Math.random()*3)
+})
+
+}
+
+function spawnVillageFlower(){
+
+flowersVillage.push({
+x: W + 100,
+y: 450
+})
+
+}
+
+
+function spawnVillageBone(){
+
+bonesVillage.push({
+x:W+100,
+y:440
+})
+
+}
+
+function updateVillage(){
+
+scroll += 2
+
+if(keys["ArrowRight"]){
+luna.x += 3
+luna.dir = 1
+}
+
+if(keys["ArrowLeft"]){
+luna.x -= 3
+luna.dir = - 1
+}
+
+if(Math.random()<0.01) spawnVillageFlower()
+
+flowersVillage.forEach(f=>{
+f.x -= 4
+})
+
+flowersVillage.forEach(f=>{
+
+if(Math.abs(f.x-luna.x)<30 && Math.abs(f.y-luna.y)<40){
+
+flowers++
+f.x = -100
+
+}
+
+})
+
+/* RUNNING DUST */
+
+if((keys["ArrowLeft"] || keys["ArrowRight"]) && luna.y >= 500){
+
+if(Math.random() < 0.25){
+
+dust.push({
+x: luna.x - luna.dir * 25,
+y: luna.y + 10,
+vx: (Math.random()-0.5)*0.5,
+vy: -0.3,
+life: 20
+})
+
+}
+
+}
+
+updateEnergy()
+if(Math.random()<0.006) spawnVillageBone()
+if(Math.random()<0.03) spawnObstacle()
+
+bonesVillage.forEach(b=>{
+
+b.x -= 4
+
+if(Math.abs(b.x-luna.x)<30){
+
+energy = Math.min(100, energy + 30)
+b.x = -100
+
+}
+
+})
+
+obstacles.forEach(o=>{
+
+o.x-=4
+
+if(
+Math.abs(o.x - luna.x) < 30 &&
+Math.abs(o.y - luna.y) < 30 &&
+!o.hit
+){
+energy -= 3
+o.hit = true
+}
+
+})
+
+if(keys[" "] && luna.y===540){
+luna.vy=-10
+}
+
+luna.vy+=0.5
+luna.y+=luna.vy
+
+if(luna.y>540){
+luna.y=540
+luna.vy=0
+}
+
+if(obstacles.length>20){
+state="altar"
+}
+
+}
+
+function drawVillage(){
+
+
+/* SKY */
+
+let sky = ctx.createLinearGradient(0,0,0,H)
+sky.addColorStop(0,"#e6f2ff")
+sky.addColorStop(1,"#ffffff")
+
+ctx.fillStyle = sky
+ctx.fillRect(0,0,W,H)
+
+
+/* FIELDS BACKGROUND */
+
+ctx.fillStyle = "#cfe8a9"
+ctx.fillRect(0, 260, W, 120)
+
+for(let x = -(scroll % 200); x < W + 200; x += 200){
+
+ctx.fillStyle = "#b8db7a"
+ctx.fillRect(x, 280, 200, 80)
+
+}
+
+ctx.fillStyle = "#6fa64e"
+ctx.fillRect(0, 340, W, 100)
+
+for(let i=0;i<8;i++){
+
+let fx = (i*120 - scroll*0.2) % (W+120)
+
+ctx.fillStyle="#ffffff"
+ctx.beginPath()
+ctx.arc(fx, 320, 3, 0, Math.PI*2)
+ctx.fill()
+
+}
+
+
+
+
+
+/* BACKGROUND HOUSES */
+
+/* BACKGROUND HOUSE ROW */
+
+/* BACKGROUND HOUSE ROW */
+
+let rowWidth = 2520
+let scale = 0.35
+let drawWidth = rowWidth * scale
+
+for(let x = -(scroll * 0.3 % drawWidth); x < W + drawWidth; x += drawWidth){
+
+ctx.drawImage(
+houseRow,
+x,
+220,
+drawWidth,
+630 * scale
+)
+
+}
+
+
+for(let x = -(scroll * 0.3 % 128); x < W; x += 128){
+ctx.drawImage(
+bggrass,
+x,
+440,
+128,
+80
+)
+}
+
+/* COBBLE PATH */
+
+ctx.fillStyle="rgba(0,0,0,0.2)"
+ctx.fillRect(0,518,W,3)
+
+for(let x = -(scroll % 128); x < W; x += 128){
+
+ctx.drawImage(
+path,
+x,
+500,
+128,
+80
+)
+
+}
+
+/* GRASS BELOW PATH */
+
+
+for(let x = -(scroll % 128); x < W; x += 128){
+
+ctx.drawImage(
+grasstile,
+x,
+560,
+128,
+80
+)
+
+ctx.drawImage(
+grasstile,
+x,
+600,
+200,
+100
+)
+
+
+
+}
+
+
+obstacles.forEach(o=>{
+
+
+
+/* SEAGULL — top of path */
+
+if(o.type === 2){
+
+ctx.drawImage(
+seagull,
+o.x,
+450,
+80,
+70
+)
+
+}
+
+
+/* FLOWERPOT — middle of path */
+
+if(o.type === 0){
+
+ctx.drawImage(
+flowerpot,
+o.x,
+470,
+80,
+80
+)
+
+}
+
+
+/* CRATE — bottom of path */
+
+if(o.type === 1){
+
+ctx.drawImage(
+crate,
+o.x,
+490,
+90,
+80
+)
+
+}
+
+})
+
+
+bonesVillage.forEach(b=>{
+
+ctx.drawImage(
+gravybone,
+b.x,
+b.y,
+40,
+40
+)
+})
+
+
+/* VILLAGE FLOWERS */
+
+flowersVillage.forEach(f=>{
+
+ctx.drawImage(
+tulip,
+f.x,
+f.y,
+50,
+50
+)
+
+})
+
+
+drawLuna()
+
+}
+
+/* ALTAR */
+
+function updateAltar(){
+
+if(keys["ArrowLeft"]) luna.x -= 3
+if(keys["ArrowRight"]) luna.x += 3
+if(keys["ArrowUp"]) luna.y -= 3
+if(keys["ArrowDown"]) luna.y += 3
+
+/* check if Luna reached the couple */
+
+let distance = Math.hypot(
+luna.x - couple.x,
+luna.y - couple.y
+)
+
+if(distance < 40 && keys[" "]){
+spawnConfetti()
+state = "win"
+}
+
+}
+
+
+function drawAltar(){
+
+ctx.fillStyle="#ffe4e1"
+ctx.fillRect(0,0,W,H)
+
+ctx.fillStyle="#8b0000"
+ctx.fillRect(W/2-40,0,80,H)
+
+ctx.drawImage(
+jonny1,
+couple.x - 70,
+couple.y - 60,
+120,
+160
+)
+
+ctx.drawImage(
+lottie1,
+couple.x + 10,
+couple.y - 60,
+120,
+160
+)
+
+ctx.fillStyle="white"
+ctx.font="18px sans-serif"
+ctx.textAlign="center"
+
+ctx.fillText(
+"Press SPACE to hand over the rings!",
+W/2,
+500
+)
+
+drawLuna()
+
+}
+
+/* END SCREENS */
+
+function drawWin(){
+
+ctx.fillStyle="white"
+ctx.textAlign="center"
+ctx.font="28px sans-serif"
+
+ctx.fillText("Congratulations Jonny & Lottie!",W/2,280)
+
+ctx.font="18px sans-serif"
+ctx.fillText("Luna delivered the rings!",W/2,320)
+
+}
+
+function drawGameOver(){
+
+ctx.fillStyle="white"
+ctx.textAlign="center"
+ctx.font="24px sans-serif"
+
+ctx.fillText("Oh no!",W/2,260)
+ctx.fillText("Luna took a nap",W/2,300)
+ctx.fillText("and missed the wedding!",W/2,340)
+
+}
+
+/* PLAYER */
+
+
+function spawnConfetti(){
+
+for(let i=0;i<150;i++){
+
+confetti.push({
+
+x: couple.x,
+y: couple.y,
+
+vx: (Math.random()-0.5)*6,
+vy: Math.random()*-6,
+
+size: Math.random()*6+3,
+
+color: [
+"#ff4d6d",
+"#ffd166",
+"#06d6a0",
+"#118ab2",
+"#ffffff"
+][Math.floor(Math.random()*5)]
+
+})
+
+}
+
+}
+
+
+/* GAME LOOP */
+
+function update(){
+
+if(state==="start") updateStart()
+if(state==="garden") updateGarden()
+if(state==="coastal") updateCoastal()
+if(state==="village") updateVillage()
+if(state==="altar") updateAltar()
+
+confetti.forEach(c=>{
+
+c.vy += 0.15
+c.x += c.vx
+c.y += c.vy
+
+})
+}
+
+dust.forEach(d=>{
+d.x += d.vx
+d.y += d.vy
+d.life--
+})
+
+dust = dust.filter(d=>d.life>0)
+
+
+function draw(){
+
+ctx.clearRect(0,0,W,H)
+
+if(state==="start") drawStart()
+if(state==="garden") drawGarden()
+if(state==="coastal") drawCoastal()
+if(state==="village") drawVillage()
+if(state==="altar") drawAltar()
+if(state==="win") drawWin()
+if(state==="gameover") drawGameOver()
+
+confetti.forEach(c=>{
+
+ctx.fillStyle = c.color
+ctx.fillRect(c.x, c.y, c.size, c.size)
+
+})
+
+
+drawUI()
+
+} 
+
+function loop(){
+
+update()
+draw()
+
+requestAnimationFrame(loop)
+
+}
+
+loop()
+
+</script>
+
+</body>
+</html>
